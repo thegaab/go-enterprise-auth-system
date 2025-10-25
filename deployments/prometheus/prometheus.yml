@@ -1,0 +1,129 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'go-auth-api'
+    environment: 'production'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Go Auth API Metrics
+  - job_name: 'go-auth-api'
+    static_configs:
+      - targets: ['go-api:8081']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 3s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+
+  # Prometheus Self-Monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+  # Node Exporter - System Metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+    honor_labels: true
+
+  # cAdvisor - Container Metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+    honor_labels: true
+
+  # PostgreSQL Exporter
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 15s
+    honor_labels: true
+
+  # Redis Exporter
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+    honor_labels: true
+
+  # Blackbox Exporter - Health Checks
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - http://go-api:8081/health
+        - http://go-api:8081/metrics
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+# Recording Rules for Performance Optimization
+recording_rules:
+  - name: go_auth_api.rules
+    rules:
+      # Request Rate (RPS)
+      - record: go_auth_api:http_requests_per_second
+        expr: rate(http_requests_total[1m])
+        labels:
+          service: "go-auth-api"
+
+      # Error Rate
+      - record: go_auth_api:http_error_rate
+        expr: rate(http_requests_total{status=~"5.."}[1m]) / rate(http_requests_total[1m])
+        labels:
+          service: "go-auth-api"
+
+      # Response Time Percentiles
+      - record: go_auth_api:http_request_duration_p95
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1m]))
+        labels:
+          service: "go-auth-api"
+
+      - record: go_auth_api:http_request_duration_p99
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[1m]))
+        labels:
+          service: "go-auth-api"
+
+      # Database Query Performance
+      - record: go_auth_api:db_query_duration_p95
+        expr: histogram_quantile(0.95, rate(database_query_duration_seconds_bucket[1m]))
+        labels:
+          service: "go-auth-api"
+
+      # Authentication Success Rate
+      - record: go_auth_api:auth_success_rate
+        expr: rate(authentication_attempts_total{result="success"}[1m]) / rate(authentication_attempts_total[1m])
+        labels:
+          service: "go-auth-api"
+
+      # Memory Usage Trend
+      - record: go_auth_api:memory_usage_bytes
+        expr: memory_usage_bytes{type="heap_alloc"}
+        labels:
+          service: "go-auth-api"
+
+      # Active Sessions Count
+      - record: go_auth_api:active_sessions
+        expr: active_sessions_count
+        labels:
+          service: "go-auth-api"
