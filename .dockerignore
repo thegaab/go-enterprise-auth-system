@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+README.md
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Development
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test files
+*_test.go
+coverage.out
+
+# Build artifacts
+main
+*.exe
+
+# Temporary files
+tmp/
+temp/
+
+# Scripts (if not needed in container)
+scripts/
